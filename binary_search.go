@@ -3,11 +3,16 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"unicode/utf8"
 )
+
+func handler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Parameter: %s", r.URL.Path[1:])
+}
 
 func get_value_from_line(line_number int, line_length int, input_file *os.File) int64 {
 	current_line := make([]byte, line_length)
@@ -65,4 +70,7 @@ func main() {
 	} else {
 		fmt.Printf("Not found!\n")
 	}
+
+	http.HandleFunc("/", handler)
+	http.ListenAndServe(":8080", nil)
 }
