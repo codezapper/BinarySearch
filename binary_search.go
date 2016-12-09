@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -10,13 +11,26 @@ import (
 	"unicode/utf8"
 )
 
+type Related struct {
+	Id   int64
+	List []int64
+}
+
 func handler(w http.ResponseWriter, r *http.Request) {
-	// fmt.Fprintf(w, "Parameter: %s", strings.Split(r.URL.Path, "/")[2])
 	parameter, _ := strconv.Atoi(strings.Split(r.URL.Path, "/")[2])
 	parameter64 := int64(parameter)
 	ret := find_in_sorted_file("test_data.csv", parameter64)
-	fmt.Printf("%s\n", ret)
-	fmt.Fprintf(w, "Result: %s", ret)
+
+	related := Related{parameter64, ret}
+
+	js, err := json.Marshal(related)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(js)
 }
 
 func get_values_from_line(line_number int, line_length int, input_file *os.File) (int64, int64) {
@@ -31,7 +45,7 @@ func get_values_from_line(line_number int, line_length int, input_file *os.File)
 	return int64(int_value), int64(related_value)
 }
 
-func find_in_sorted_file(file_name string, search_num int64) string {
+func find_in_sorted_file(file_name string, search_num int64) []int64 {
 	input_file, _ := os.Open(file_name)
 
 	scanner := bufio.NewScanner(input_file)
@@ -62,8 +76,7 @@ func find_in_sorted_file(file_name string, search_num int64) string {
 		}
 	}
 
-	fmt.Printf("%d\n", current_index)
-	var ret_strings []string
+	var ret_value []int64
 	if current_index > 0 {
 		done = false
 		for !done {
@@ -77,18 +90,16 @@ func find_in_sorted_file(file_name string, search_num int64) string {
 		done = false
 		for !done {
 			int_value, related_value := get_values_from_line(current_index, line_length, input_file)
-			fmt.Printf("%d - %d\n", int_value, related_value)
 			if int_value != search_num {
 				done = true
 			} else {
-				str_value := fmt.Sprintf("%d", related_value)
-				ret_strings = append(ret_strings, str_value)
+				fmt.Printf("%d\n", related_value)
+				ret_value = append(ret_value, related_value)
 				current_index += 1
 			}
 		}
 	}
 
-	ret_value := strings.Join(ret_strings, "\n")
 	return ret_value
 }
 
