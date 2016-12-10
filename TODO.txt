@@ -1,3 +1,2 @@
-- Use JSON encoding for output
 - Write unit/integration tests
 

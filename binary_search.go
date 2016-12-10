@@ -1,14 +1,14 @@
 package main
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
+	"search"
 	"strconv"
 	"strings"
-	"unicode/utf8"
 )
 
 type Related struct {
@@ -19,7 +19,7 @@ type Related struct {
 func handler(w http.ResponseWriter, r *http.Request) {
 	parameter, _ := strconv.Atoi(strings.Split(r.URL.Path, "/")[2])
 	parameter64 := int64(parameter)
-	ret := find_in_sorted_file("test_data.csv", parameter64)
+	ret := search.Find_in_sorted_file("test_data.csv", parameter64)
 
 	related := Related{parameter64, ret}
 
@@ -33,77 +33,15 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	w.Write(js)
 }
 
-func get_values_from_line(line_number int, line_length int, input_file *os.File) (int64, int64) {
-	current_line := make([]byte, line_length)
-
-	input_file.Seek(int64((line_length+1)*line_number), 0)
-	input_file.Read(current_line)
-	string_values := strings.Split(string(current_line), ";")
-	int_value, _ := strconv.Atoi(string_values[0])
-	related_value, _ := strconv.Atoi(string_values[1])
-
-	return int64(int_value), int64(related_value)
-}
-
-func find_in_sorted_file(file_name string, search_num int64) []int64 {
-	input_file, _ := os.Open(file_name)
-
-	scanner := bufio.NewScanner(input_file)
-	scanner.Scan()
-	line_length := utf8.RuneCountInString(scanner.Text())
-	num_lines, _ := strconv.Atoi(scanner.Text())
-	high_end := 1
-	low_end := num_lines
-	current_index := 0
-
-	done := false
-	for !done {
-		if (low_end - high_end) <= 1 {
-			current_index = -1
-			done = true
-		} else {
-			current_index = (high_end + low_end) / 2
-			int_value, _ := get_values_from_line(current_index, line_length, input_file)
-			if int_value == search_num {
-				done = true
-			} else {
-				if int_value < search_num {
-					high_end = current_index
-				} else {
-					low_end = current_index
-				}
-			}
-		}
-	}
-
-	var ret_value []int64
-	if current_index > 0 {
-		done = false
-		for !done {
-			current_index--
-			int_value, _ := get_values_from_line(current_index, line_length, input_file)
-			if int_value != search_num {
-				done = true
-			}
-		}
-		current_index += 1
-		done = false
-		for !done {
-			int_value, related_value := get_values_from_line(current_index, line_length, input_file)
-			if int_value != search_num {
-				done = true
-			} else {
-				fmt.Printf("%d\n", related_value)
-				ret_value = append(ret_value, related_value)
-				current_index += 1
-			}
-		}
-	}
-
-	return ret_value
-}
-
 func main() {
+	signal_channel := make(chan os.Signal, 1)
+	signal.Notify(signal_channel, os.Interrupt)
+	go func() {
+		for signal := range signal_channel {
+			fmt.Printf("TEST %d\n", signal)
+			os.Exit(0)
+		}
+	}()
 	http.HandleFunc("/related/", handler)
 	http.ListenAndServe(":8080", nil)
 }
